@@ -99,25 +99,39 @@ startButton.addEventListener("click",()=>{
     startGroupTimers();
 });
 
-// Users array with timers counting UP
+// Users array with persistent timers
 let users = [
-    {id:"user1", name:"Ralph", time:0},
-    {id:"user2", name:"Nick", time:0},
-    {id:"user3", name:"Jun", time:0},
-    {id:"user4", name:"Nansen", time:0},
-    {id:"user5", name:"Dinesh", time:0},
-    {id:"user6", name:"Dustin", time:0},
-    {id:"user7", name:"Tean", time:0}
+    {id:"user1", name:"Ralph", startTime:0},
+    {id:"user2", name:"Nick", startTime:0},
+    {id:"user3", name:"Jun", startTime:0},
+    {id:"user4", name:"Nansen", startTime:0},
+    {id:"user5", name:"Dinesh", startTime:0},
+    {id:"user6", name:"Dustin", startTime:0},
+    {id:"user7", name:"Tean", startTime:0}
 ];
 
-// Start counting up
+// Load saved timestamps or create them
+users.forEach(u => {
+    let saved = localStorage.getItem("start_" + u.id);
+    if (saved) {
+        u.startTime = parseInt(saved);
+    } else {
+        u.startTime = Date.now();
+        localStorage.setItem("start_" + u.id, u.startTime);
+    }
+});
+
+// Persistent timer counting up
 function startGroupTimers(){
     setInterval(()=>{
         users.forEach(u=>{
-            u.time++;
-            const minutes=Math.floor(u.time/60).toString().padStart(2,'0');
-            const seconds=(u.time%60).toString().padStart(2,'0');
-            document.getElementById(u.id).textContent=`${u.name}: ${minutes}:${seconds}`;
+            const now = Date.now();
+            const elapsed = Math.floor((now - u.startTime) / 1000);
+
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2,'0');
+            const seconds = (elapsed % 60).toString().padStart(2,'0');
+
+            document.getElementById(u.id).textContent = `${u.name}: ${minutes}:${seconds}`;
         });
     },1000);
 }
@@ -129,20 +143,21 @@ if ("Notification" in window) {
     }
 }
 
-// Reset buttons with GOONED notifications
+// Reset buttons with GOONED notifications + persistent reset
 const resetButtons = document.querySelectorAll(".resetButton");
 resetButtons.forEach(btn => {
     btn.addEventListener("click", () => {
         const userId = btn.dataset.user;
         const user = users.find(u => u.id === userId);
-        if (user) {
-            user.time = 0;
 
-            // Send browser notification
+        if (user) {
+            user.startTime = Date.now();
+            localStorage.setItem("start_" + userId, user.startTime);
+
             if (Notification.permission === "granted") {
                 new Notification("Goon Timer", {
                     body: `${user.name} has GOONED!`,
-                    icon: "https://i.imgur.com/6NfmR5J.png" // optional
+                    icon: "https://i.imgur.com/6NfmR5J.png"
                 });
             }
         }
