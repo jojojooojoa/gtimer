@@ -129,33 +129,31 @@ resetButtons.forEach(btn => {
 // ---------------------------
 
 function updateLeaderboard() {
-    const leaderboard = document.getElementById("leaderboard");
+    const container = document.getElementById("leaderboard-list");
+    if (!container) return;
 
-    if (!leaderboard) return;
-
-    // Calculate elapsed times
+    // Calculate & sort times
     let sorted = users
         .map(u => ({
             name: u.name,
             elapsed: Math.floor((Date.now() - u.startTime) / 1000)
         }))
-        .sort((a, b) => b.elapsed - a.elapsed)
-        .slice(0, 3);
+        .sort((a, b) => b.elapsed - a.elapsed);
 
-    leaderboard.innerHTML = "";
+    container.innerHTML = ""; // clear old list
 
     sorted.forEach((u, index) => {
         let div = document.createElement("div");
-        div.className = "leaderboardItem";
 
-        if (index === 0) div.classList.add("gold");
-        if (index === 1) div.classList.add("silver");
-        if (index === 2) div.classList.add("bronze");
+        // Apply top 3 styling
+        if (index === 0) div.classList.add("top1");
+        else if (index === 1) div.classList.add("top2");
+        else if (index === 2) div.classList.add("top3");
 
         const minutes = Math.floor(u.elapsed / 60).toString().padStart(2, "0");
         const seconds = (u.elapsed % 60).toString().padStart(2, "0");
 
         div.textContent = `${index + 1}. ${u.name} — ${minutes}:${seconds}`;
-        leaderboard.appendChild(div);
+        container.appendChild(div);
     });
 }
