@@ -1,74 +1,251 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Goon Timer</title>
-
-  <style>
-    body {
-      background: black;
-      color: red;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .user-card {
-      padding: 10px;
-      margin: 10px;
-      border: 2px solid red;
-      border-radius: 8px;
-    }
-
-    #leaderboard {
-      margin-top: 30px;
-      padding: 20px;
-      border: 3px solid red;
-      border-radius: 10px;
-    }
-
-    .top1 { color: gold; font-size: 1.6em; text-shadow: 0 0 10px gold; }
-    .top2 { color: silver; font-size: 1.4em; text-shadow: 0 0 10px silver; }
-    .top3 { color: #cd7f32; font-size: 1.2em; text-shadow: 0 0 10px #cd7f32; }
-  </style>
+<meta charset="UTF-8">
+<title>Goon Timer</title>
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 
-  <h1>🔥 GOON TIMER 🔥</h1>
+<canvas id="cyberCanvas"></canvas>
 
-  <div id="users"></div>
+<!-- Loading Screen -->
+<div id="loadingScreen">
+    <div id="loadingText">Goon Timer</div>
+    <button id="startButton">START</button>
+</div>
 
-  <div id="leaderboard">
-    <h2>🏆 Leaderboard</h2>
-    <div id="leaderboard-list"></div>
-  </div>
+<!-- Timer Screen -->
+<div id="timerScreen">
+    <h1>Group Shared Timer</h1>
 
-  <!-- Firebase SDKs -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js"
-    import { getDatabase } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js"
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user1">Ralph: 00:00</div>
+        <button class="resetButton" data-user="user1">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user2">Nick: 00:00</div>
+        <button class="resetButton" data-user="user2">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user3">Jun: 00:00</div>
+        <button class="resetButton" data-user="user3">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user4">Nansen: 00:00</div>
+        <button class="resetButton" data-user="user4">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user5">Dinesh: 00:00</div>
+        <button class="resetButton" data-user="user5">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user6">Dustin: 00:00</div>
+        <button class="resetButton" data-user="user6">RESET</button>
+    </div>
+    <div class="userTimerContainer">
+        <div class="userTimer" id="user7">Tean: 00:00</div>
+        <button class="resetButton" data-user="user7">RESET</button>
+    </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAI0GO5yqfbA2JCyZERiL392GmdOuOtdEs",
-      authDomain: "goontimer-bb279.firebaseapp.com",
-      databaseURL: "https://goontimer-bb279-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "goontimer-bb279",
-      storageBucket: "goontimer-bb279.firebasestorage.app",
-      messagingSenderId: "810403917824",
-      appId: "1:810403917824:web:21e1565ec971faedd128e5"
-    };
+</div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+<script type="module">
+// ----------------------
+// Canvas animation (unchanged)
+// ----------------------
+const canvas = document.getElementById("cyberCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-    // Expose Firebase globally so app.js can use it
-    window.db = db;
-  </script>
+let particles = [];
+for(let i=0;i<200;i++){
+    particles.push({
+        x:Math.random()*canvas.width,
+        y:Math.random()*canvas.height,
+        size:Math.random()*3+1,
+        speedY:Math.random()*1+0.5,
+        color:`hsl(${Math.random()*360},100%,50%)`
+    });
+}
 
-  <!-- Your JS file -->
-  <script src="app.js"></script>
+function animate(){
+    ctx.fillStyle = 'rgba(13,13,13,0.2)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
+    particles.forEach(p=>{
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        ctx.fillStyle=p.color;
+        ctx.shadowBlur=20;
+        ctx.shadowColor=p.color;
+        ctx.fill();
+
+        p.y += p.speedY;
+        if(p.y>canvas.height) p.y=0;
+    });
+
+    requestAnimationFrame(animate);
+}
+animate();
+
+// ----------------------
+// UI show/hide (unchanged)
+// ----------------------
+const startButton = document.getElementById("startButton");
+const loadingScreen = document.getElementById("loadingScreen");
+const timerScreen = document.getElementById("timerScreen");
+
+startButton.addEventListener("click",()=>{
+    loadingScreen.style.display="none";
+    timerScreen.style.display="flex";
+    startGroupTimers(); // starts the local update loop (reads from DB via listener)
+});
+
+// ----------------------
+// Firebase setup & shared timers
+// ----------------------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ---- YOUR FIREBASE CONFIG (you provided it earlier) ----
+const firebaseConfig = {
+  apiKey: "AIzaSyAI0GO5yqfbA2JCyZERiL392GmdOuOtdEs",
+  authDomain: "goontimer-bb279.firebaseapp.com",
+  databaseURL: "https://goontimer-bb279-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "goontimer-bb279",
+  storageBucket: "goontimer-bb279.firebasestorage.app",
+  messagingSenderId: "810403917824",
+  appId: "1:810403917824:web:21e1565ec971faedd128e5"
+};
+
+// Initialize firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Local users array (keeps UI names and will mirror DB)
+let users = [
+    {id:"user1", name:"Ralph", startTime: Date.now()},
+    {id:"user2", name:"Nick", startTime: Date.now()},
+    {id:"user3", name:"Jun", startTime: Date.now()},
+    {id:"user4", name:"Nansen", startTime: Date.now()},
+    {id:"user5", name:"Dinesh", startTime: Date.now()},
+    {id:"user6", name:"Dustin", startTime: Date.now()},
+    {id:"user7", name:"Tean", startTime: Date.now()}
+];
+
+// Helper: write initial timers in DB if missing
+async function ensureInitialTimers() {
+    const rootRef = ref(db, "timers");
+    // fetch once
+    const snapshot = await get(rootRef);
+    const data = snapshot.val();
+    // if null or missing entries, initialize
+    const updates = {};
+    const now = Date.now();
+    users.forEach(u => {
+        if (!data || !data[u.id]) {
+            updates[u.id + "/lastReset"] = now;
+            u.startTime = now;
+        } else {
+            u.startTime = data[u.id].lastReset;
+        }
+    });
+    if (Object.keys(updates).length) {
+        // write initial object
+        await set(rootRef, Object.assign({}, data || {}, Object.fromEntries(
+            users.map(u=>[u.id, { lastReset: (data && data[u.id] ? data[u.id].lastReset : now) }])
+        )));
+    }
+}
+
+// Listen for realtime updates in DB and mirror them locally
+function attachRealtimeListener() {
+    const timersRef = ref(db, "timers");
+    onValue(timersRef, (snapshot) => {
+        const val = snapshot.val();
+        if (!val) return;
+        users.forEach(u => {
+            if (val[u.id] && val[u.id].lastReset) {
+                u.startTime = val[u.id].lastReset;
+            }
+        });
+    });
+}
+
+// Reset a user's timer (writes to Firebase)
+function resetUserTimerInDB(userId) {
+    const userRef = ref(db, "timers/" + userId);
+    set(userRef, { lastReset: Date.now() });
+}
+
+// ----------------------
+// Timer display loop (uses users[].startTime populated from DB)
+// ----------------------
+let localIntervalHandle = null;
+function startGroupTimers() {
+    // ensure DB has initial values, attach listener, then start local render loop
+    ensureInitialTimers().then(() => {
+        attachRealtimeListener();
+
+        // If an interval already exists, don't stack it
+        if (localIntervalHandle) clearInterval(localIntervalHandle);
+
+        localIntervalHandle = setInterval(() => {
+            users.forEach(u=>{
+                const now = Date.now();
+                const elapsed = Math.floor((now - u.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2,'0');
+                const seconds = (elapsed % 60).toString().padStart(2,'0');
+                // keep the same DOM id/text format you used
+                const el = document.getElementById(u.id);
+                if (el) el.textContent = `${u.name}: ${minutes}:${seconds}`;
+            });
+        }, 1000);
+    }).catch(err=>{
+        console.error("Error ensuring timers:", err);
+    });
+}
+
+// ----------------------
+// Request notification permission (in-browser only)
+if ("Notification" in window) {
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission().then(p => {
+            console.log("Notification permission:", p);
+        });
+    }
+}
+
+// ----------------------
+// Wire reset buttons: write to DB, notifications will be sent locally (Option B)
+const resetButtons = document.querySelectorAll(".resetButton");
+resetButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        const userId = btn.dataset.user;
+        const user = users.find(u=>u.id===userId);
+        if (!user) return;
+
+        // write reset to DB — this updates everyone through the realtime listener
+        resetUserTimerInDB(userId);
+
+        // show in-browser notification to this client (if permitted)
+        if (Notification.permission === "granted") {
+            try {
+                new Notification("Goon Timer", {
+                    body: `${user.name} has GOONED!`,
+                    // use the local uploaded file path you provided for the icon (tool will convert)
+                    icon: "/mnt/data/f9199881-c622-47db-a505-69042ec8c67c.png"
+                });
+            } catch (e) {
+                console.warn("Notification failed:", e);
+            }
+        }
+    });
+});
+</script>
+ <script src="app.js"></script>
 </body>
 </html>
+
